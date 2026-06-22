@@ -47,7 +47,7 @@
 <div id="overlay">
   <h1>TINA STARS</h1>
   <div class="sub">Jardim Selvagem</div>
-  <p>Esquerda move · Direita mira e atira · PULAR salta os arbustos (invencível no ar) · SUPER solta as estrelas! Sobreviva às ondas.</p>
+  <p>Celular: joysticks + botões PULAR/SUPER.<br>PC: WASD move · mouse mira e clica atira · espaço pula · E o super.</p>
   <button id="startBtn">Jogar ▶</button>
 </div>
 <script>
@@ -88,6 +88,20 @@
   jb.addEventListener('touchstart',function(e){e.preventDefault();doJump();},{passive:false});
   jb.addEventListener('click',doJump);
   document.getElementById('startBtn').addEventListener('click',start);
+
+  // ---- teclado + mouse (desktop) ----
+  var keyset={};
+  function kbVec(){var mx=0,my=0;if(keyset['w']||keyset['arrowup'])my--;if(keyset['s']||keyset['arrowdown'])my++;if(keyset['a']||keyset['arrowleft'])mx--;if(keyset['d']||keyset['arrowright'])mx++;var l=Math.hypot(mx,my);if(l>0){move.x=mx/l;move.y=my/l;}else if(usingKb){move.x=0;move.y=0;}}
+  var usingKb=false;
+  window.addEventListener('keydown',function(e){var k=e.key.toLowerCase();
+    if(k===' '){e.preventDefault();if(state==='menu'||state==='over')start();else doJump();return;}
+    if(k==='e'){e.preventDefault();doSuper();return;}
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k)>=0){e.preventDefault();usingKb=true;keyset[k]=true;kbVec();}});
+  window.addEventListener('keyup',function(e){var k=e.key.toLowerCase();if(keyset[k]){keyset[k]=false;kbVec();}});
+  function mouseAim(e){if(!player)return;var r=cv.getBoundingClientRect();var mx=(e.clientX-r.left)*(W/r.width)-player.x,my=(e.clientY-r.top)*(H/r.height)-(player.y-10-player.z);aim.x=mx;aim.y=my;}
+  cv.addEventListener('mousemove',function(e){mouseAim(e);});
+  cv.addEventListener('mousedown',function(e){e.preventDefault();mouseAim(e);aim.active=true;});
+  window.addEventListener('mouseup',function(){if(!('ontouchstart' in window))aim.active=false;});
 
   function start(){
     player={x:W/2,y:H/2,r:17,hp:130,maxhp:130,cool:0,speed:3.1,face:1,z:0,vz:0};
