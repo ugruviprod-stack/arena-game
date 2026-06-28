@@ -13,17 +13,17 @@
   #hud { position:fixed; top:env(safe-area-inset-top,8px); left:0; right:0; display:flex; gap:8px; justify-content:center; padding:8px; font-size:14px; z-index:5; text-shadow:0 1px 2px rgba(0,0,0,0.6); pointer-events:none; }
   #hud div { background:rgba(0,0,0,0.35); padding:5px 12px; border-radius:10px; }
   #hud b { color:#ffe27a; }
-  .stick { position:fixed; bottom:calc(env(safe-area-inset-bottom,20px) + 24px); width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.18); z-index:4; }
+  .stick { position:fixed; bottom:calc(var(--vvGap,0px) + env(safe-area-inset-bottom,20px) + 24px); width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.08); border:2px solid rgba(255,255,255,0.18); z-index:4; }
   #stickL { left:24px; } #stickR { right:24px; }
   .knob { position:absolute; top:50%; left:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(255,255,255,0.3); }
   #stickR { background:rgba(255,120,170,0.16); border-color:rgba(255,120,170,0.45); } #stickR .knob { background:rgba(255,120,170,0.6); }
   .actBtn { position:fixed; border-radius:50%; color:#fff; font-size:13px; font-weight:700; z-index:4; display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.2; border:2px solid rgba(255,255,255,0.4); }
-  #superBtn { right:24px; bottom:calc(env(safe-area-inset-bottom,20px) + 230px); width:72px; height:72px; background:rgba(120,80,200,0.4); border-color:rgba(255,210,90,0.45); font-size:12px; }
+  #superBtn { right:24px; bottom:calc(var(--vvGap,0px) + env(safe-area-inset-bottom,20px) + 230px); width:72px; height:72px; background:rgba(120,80,200,0.4); border-color:rgba(255,210,90,0.45); font-size:12px; }
   #superBtn.ready { background:rgba(255,200,70,0.92); border-color:#fff; animation:pulse 0.8s infinite; }
-  #jumpBtn { right:150px; bottom:calc(env(safe-area-inset-bottom,20px) + 44px); width:80px; height:80px; background:rgba(90,200,120,0.45); }
+  #jumpBtn { right:150px; bottom:calc(var(--vvGap,0px) + env(safe-area-inset-bottom,20px) + 44px); width:80px; height:80px; background:rgba(90,200,120,0.45); }
   #jumpBtn:active { transform:scale(0.92); }
   @keyframes pulse { 50%{ transform:scale(1.08); } }
-  .gameUI { display:none; }
+  body:not(.playing) .gameUI { display:none !important; }
   /* ---- telas (menu/lobby/over) ---- */
   #screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; z-index:10; padding:24px; overflow-y:auto;
     background:radial-gradient(circle at 50% 30%, #2a5a30, #0e1a10); }
@@ -74,6 +74,7 @@
       <button class="btn btn-blue" id="btnJoin" style="width:auto; padding:14px 22px;">Entrar</button>
     </div>
     <div class="status" id="mpStatus"></div>
+    <div id="iosTip" class="hide" style="font-size:11px;color:#a8e6a0;text-align:center;line-height:1.5;background:rgba(0,0,0,0.25);padding:8px 12px;border-radius:10px;">📱 Pra tela cheia no iPhone: toque em <b>Compartilhar</b> e depois <b>“Adicionar à Tela de Início”</b>.</div>
   </div>
 
   <div class="panel hide" id="pLobby">
@@ -99,6 +100,21 @@
   var W,H,DPR=Math.min(window.devicePixelRatio||1,2);
   function resize(){W=window.innerWidth;H=window.innerHeight;cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';x.setTransform(DPR,0,0,DPR,0,0);buildGarden();}
   window.addEventListener('resize',resize);
+
+  // mantém os controles acima da barra inferior do Safari (iPhone): mede o vão entre
+  // o layout viewport e a viewport visível e expõe como --vvGap.
+  function syncViewportGap(){
+    var vv=window.visualViewport,gap=0;
+    if(vv){gap=Math.max(0,window.innerHeight-(vv.height+vv.offsetTop));}
+    document.documentElement.style.setProperty('--vvGap',gap+'px');
+  }
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',syncViewportGap);
+    window.visualViewport.addEventListener('scroll',syncViewportGap);
+  }
+  window.addEventListener('resize',syncViewportGap);
+  window.addEventListener('orientationchange',function(){setTimeout(syncViewportGap,300);});
+  syncViewportGap();
 
   // ===== projeção pseudo-3D =====
   var TOP=0.58; // largura no fundo relativa à base
@@ -179,7 +195,7 @@
   function startGame(asRole){
     role=asRole;state='play';
     document.getElementById('screen').classList.add('hide');
-    document.querySelectorAll('.gameUI').forEach(function(el){el.style.display='';});
+    document.body.classList.add('playing');
     bullets=[];ebullets=[];enemies=[];particles=[];kills=0;wave=1;spawnT=40;flash=0;
     if(asRole==='client'){players=[];}else{
       players=[mkPlayer(0,myName,myChar)];
@@ -338,7 +354,7 @@
   // ===== telas =====
   function show(id){['pMenu','pLobby','pOver'].forEach(function(p){document.getElementById(p).classList.toggle('hide',p!==id);});document.getElementById('screen').classList.remove('hide');}
   function gameOver(){state='over';if(conn&&role==='host')conn.send(snapshot());if(kills>best){best=kills;localStorage.setItem('tinaBest',best);}showOver(kills,wave);}
-  function showOver(k,w){document.querySelectorAll('.gameUI').forEach(function(el){el.style.display='none';});
+  function showOver(k,w){document.body.classList.remove('playing');
     document.getElementById('overTitle').textContent=k>=20?'VITÓRIA DA TINA!':'FIM DE JOGO';
     document.getElementById('overStats').textContent='Abates: '+k+' · Onda '+w+' · Recorde '+best;show('pOver');}
 
@@ -349,8 +365,13 @@
   var nameInput=document.getElementById('nameInput');nameInput.value=localStorage.getItem('tinaName')||'';
   function readName(){myName=(nameInput.value.trim()||'Tina').slice(0,10);localStorage.setItem('tinaName',myName);}
 
-  document.getElementById('btnSolo').onclick=function(){readName();role='solo';startGame('solo');};
-  document.getElementById('btnAgain').onclick=function(){if(role==='client'){cleanupNet();location.reload();return;}startGame(role==='host'&&conn?'host':'solo');};
+  function goFullscreen(){
+    var el=document.documentElement;
+    var rf=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+    if(rf){try{var p=rf.call(el);if(p&&p.catch)p.catch(function(){});}catch(e){}}
+  }
+  document.getElementById('btnSolo').onclick=function(){goFullscreen();readName();role='solo';startGame('solo');};
+  document.getElementById('btnAgain').onclick=function(){goFullscreen();if(role==='client'){cleanupNet();location.reload();return;}startGame(role==='host'&&conn?'host':'solo');};
   document.getElementById('btnMenu').onclick=function(){cleanupNet();location.reload();};
 
   // ===== multiplayer (PeerJS / WebRTC) =====
@@ -361,7 +382,7 @@
   if(!PJS){setStatus('Multiplayer indisponível (sem conexão).');document.getElementById('btnCreate').disabled=true;document.getElementById('btnJoin').disabled=true;}
 
   document.getElementById('btnCreate').onclick=function(){
-    if(!PJS)return;readName();var code=genCode();cleanupNet();
+    if(!PJS)return;goFullscreen();readName();var code=genCode();cleanupNet();
     setStatus('Criando sala...');
     peer=new Peer('tinastars-'+code,{debug:0});
     peer.on('open',function(){document.getElementById('roomCode').textContent=code;document.getElementById('lobbyStatus').textContent='Aguardando jogador...';show('pLobby');});
@@ -376,7 +397,7 @@
   document.getElementById('btnCancel').onclick=function(){cleanupNet();show('pMenu');};
 
   document.getElementById('btnJoin').onclick=function(){
-    if(!PJS)return;readName();var code=(document.getElementById('codeInput').value||'').toUpperCase().trim();
+    if(!PJS)return;goFullscreen();readName();var code=(document.getElementById('codeInput').value||'').toUpperCase().trim();
     if(code.length<4){setStatus('Digite o código de 4 letras.');return;}
     cleanupNet();setStatus('Conectando...');
     peer=new Peer({debug:0});
@@ -391,6 +412,13 @@
     });
     peer.on('error',function(e){setStatus('Erro de conexão: '+(e.type||e));});
   };
+
+  // dica de tela cheia só no iPhone/iPad Safari fora do modo "tela de início"
+  (function(){
+    var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+    var standalone=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+    if(isIOS&&!standalone)document.getElementById('iosTip').classList.remove('hide');
+  })();
 
   show('pMenu');
 })();
